@@ -1,0 +1,194 @@
+
+name: Build AutoWallpaper
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Self-contained
+            self_contained: "true"
+            package: AutoWallpaper-win-x64
+
+          - label: Framework-dependent
+            self_contained: "false"
+            package: AutoWallpaper-win-x64-framework-Non-Net8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Locate project
+        id: project
+        shell: pwsh
+        run: |
+          $projects = @(
+            Get-ChildItem $env:GITHUB_WORKSPACE `
+              -Recurse -Filter AutoWallpaper.csproj |
+              Where-Object {
+                $_.FullName -notmatch '[\\/](bin|obj)[\\/]'
+              }
+          )
+
+          if ($projects.Count -eq 0) {
+            throw "AutoWallpaper.csproj not found."
+          }
+
+          $project = $projects[0].FullName
+
+          "path=$project" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Project: $project"
+
+      - name: Restore
+        run: dotnet restore "${{ steps.project.outputs.path }}"
+
+      - name: Publish Windows x64
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP "publish"
+
+          if (Test-Path $output) {
+            Remove-Item $output -Recurse -Force
+          }
+
+          $publishArgs = @(
+            "publish"
+            "${{ steps.project.outputs.path }}"
+            "--configuration", "Release"
+            "--runtime", "win-x64"
+            "--self-contained", "${{ matrix.self_contained }}"
+            "--output", "$output"
+            "-p:PublishSingleFile=true"
+            "-p:IncludeNativeLibrariesForSelfExtract=true"
+            "-p:DebugType=None"
+            "-p:DebugSymbols=false"
+          )
+
+          & dotnet @publishArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed."
+          }
+
+          if (-not (Test-Path "$output\AutoWallpaper.exe")) {
+            Get-ChildItem $output -Force |
+              Format-Table Name, Length
+
+            throw "AutoWallpaper.exe not found."
+          }
+
+          Write-Host "Published files:"
+          Get-ChildItem $output -Force |
+            Format-Table Name, Length
+
+      - name: Create ZIP package
+        id: package
+        shell: pwsh
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP "publish"
+
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}"
+          }
+          else {
+            $version = "dev-${{ github.run_number }}"
+          }
+
+          $zipName = "${{ matrix.package }}-$version.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP $zipName
+
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+
+          Compress-Archive `
+            -Path "$output\*" `
+            -DestinationPath $zipPath `
+            -CompressionLevel Optimal
+
+          if (-not (Test-Path $zipPath)) {
+            throw "ZIP package was not created."
+          }
+
+          "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+          Write-Host "Created: $zipName"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}
+          path: ${{ steps.package.outputs.zip_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download both build packages
+        uses: actions/download-artifact@v4
+        with:
+          path: release-packages
+          pattern: AutoWallpaper-win-x64*
+          merge-multiple: true
+
+      - name: Verify packages
+        shell: pwsh
+        run: |
+          $files = @(
+            Get-ChildItem "release-packages" -Filter "*.zip"
+          )
+
+          if ($files.Count -ne 2) {
+            Get-ChildItem "release-packages" -Force |
+              Format-Table Name, Length
+
+            throw "Expected exactly 2 ZIP packages, found $($files.Count)."
+          }
+
+          $files | Format-Table Name, Length
+
+      - name: Publish both packages to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: AutoWallpaper ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            release-packages/AutoWallpaper-win-x64-${{ github.ref_name }}.zip
+            release-packages/AutoWallpaper-win-x64-framework-Non-Net8-${{ github.ref_name }}.zip
