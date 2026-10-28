@@ -8,18 +8,64 @@ on:
       - master
     tags:
       - "v*"
+
   pull_request:
     branches:
       - main
       - master
+
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: "正式发布版本号，例如 v1.0.1；留空则只构建测试包"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
 
 jobs:
+  create_tag:
+    name: Create release tag
+    if: github.event_name == 'workflow_dispatch' && inputs.release_version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate version and create tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version: $RELEASE_VERSION"
+            echo "Use a version such as v1.0.1"
+            exit 1
+          fi
+
+          if gh api "repos/$REPOSITORY/git/ref/tags/$RELEASE_VERSION" >/dev/null 2>&1; then
+            echo "Tag $RELEASE_VERSION already exists."
+            echo "Choose a new version."
+            exit 1
+          fi
+
+          gh api --method POST "repos/$REPOSITORY/git/refs" \
+            -f "ref=refs/tags/$RELEASE_VERSION" \
+            -f "sha=$TARGET_SHA"
+
+          echo "Created tag $RELEASE_VERSION at $TARGET_SHA"
+
   build:
     name: Build ${{ matrix.label }}
+    needs: create_tag
+    if: always() && (needs.create_tag.result == 'success' || needs.create_tag.result == 'skipped')
     runs-on: windows-latest
 
     strategy:
@@ -60,9 +106,7 @@ jobs:
           }
 
           $project = $projects[0].FullName
-
           "path=$project" >> $env:GITHUB_OUTPUT
-
           Write-Host "Project: $project"
 
       - name: Restore
@@ -110,16 +154,23 @@ jobs:
       - name: Create ZIP package
         id: package
         shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
-          $output = Join-Path $env:RUNNER_TEMP "publish"
-
-          if ("${{ github.ref_type }}" -eq "tag") {
-            $version = "${{ github.ref_name }}"
+          if ($env:RELEASE_VERSION) {
+            $version = $env:RELEASE_VERSION
+          }
+          elseif ($env:REF_TYPE -eq "tag") {
+            $version = $env:REF_NAME
           }
           else {
-            $version = "dev-${{ github.run_number }}"
+            $version = "dev-$env:RUN_NUMBER"
           }
 
+          $output = Join-Path $env:RUNNER_TEMP "publish"
           $zipName = "${{ matrix.package }}-$version.zip"
           $zipPath = Join-Path $env:RUNNER_TEMP $zipName
 
@@ -152,7 +203,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_version != '')
     runs-on: windows-latest
 
     permissions:
@@ -185,10 +236,10 @@ jobs:
       - name: Publish both packages to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: AutoWallpaper ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_version != '' && inputs.release_version || github.ref_name }}
+          name: AutoWallpaper ${{ inputs.release_version != '' && inputs.release_version || github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            release-packages/AutoWallpaper-win-x64-${{ github.ref_name }}.zip
-            release-packages/AutoWallpaper-win-x64-framework-Non-Net8-${{ github.ref_name }}.zip
+            release-packages/AutoWallpaper-win-x64-${{ inputs.release_version != '' && inputs.release_version || github.ref_name }}.zip
+            release-packages/AutoWallpaper-win-x64-framework-Non-Net8-${{ inputs.release_version != '' && inputs.release_version || github.ref_name }}.zip
