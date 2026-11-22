@@ -44,6 +44,7 @@ public partial class App : System.Windows.Application
             if (!_exiting && service is not null)
                 await service.ChangeNowAsync();
         });
+        _trayMenu.Items.Add("收藏当前壁纸", null, (_, _) => FavoriteCurrentWallpaper());
         _trayMenu.Items.Add(new Forms.ToolStripSeparator());
         _trayMenu.Items.Add("退出", null, (_, _) => PostToWpf(ExitApplication));
 
@@ -83,13 +84,19 @@ public partial class App : System.Windows.Application
         _tray.DoubleClick += (_, _) =>
         {
             _trayClickTimer?.Stop();
-            var service = _service;
-            if (_exiting || service is null) return;
-            if (service.FavoriteCurrentWallpaper())
-                OnStatusChanged("已将当前壁纸复制到 Favorites 收藏夹，原缓存文件保留。");
-            else
-                OnStatusChanged("当前壁纸尚不可收藏，或它已经在收藏夹中。");
+            FavoriteCurrentWallpaper();
         };
+    }
+
+    private void FavoriteCurrentWallpaper()
+    {
+        var service = _service;
+        if (_exiting || service is null) return;
+
+        if (service.FavoriteCurrentWallpaper())
+            OnStatusChanged("收藏成功");
+        else
+            OnStatusChanged("收藏失败：当前壁纸尚不可收藏，或它已经在收藏夹中。");
     }
 
     private void PostToWpf(Action action)
