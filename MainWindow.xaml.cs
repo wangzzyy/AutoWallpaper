@@ -276,8 +276,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_service.FavoriteCurrentWallpaper()) SetStatus("收藏成功");
-            else SetStatus("收藏失败：该图片已收藏，或当前壁纸不可用。");
+            var result = _service.FavoriteCurrentWallpaper();
+            SetStatus(result switch
+            {
+                FavoriteResult.Success => "收藏成功",
+                FavoriteResult.AlreadyExists => "该图片已经收藏，无需重复收藏。",
+                _ => "收藏失败：当前壁纸不可用。"
+            });
         }
         catch (Exception ex) { SetStatus("收藏失败：" + ex.Message); }
     }
