@@ -276,8 +276,8 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_service.FavoriteCurrentWallpaper()) SetStatus("已将当前壁纸复制到 Favorites 收藏夹，原缓存文件保留。");
-            else SetStatus("当前壁纸尚不可收藏，或它已经在收藏夹中。");
+            if (_service.FavoriteCurrentWallpaper()) SetStatus("收藏成功");
+            else SetStatus("收藏失败：该图片已收藏，或当前壁纸不可用。");
         }
         catch (Exception ex) { SetStatus("收藏失败：" + ex.Message); }
     }
