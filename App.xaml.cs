@@ -8,6 +8,7 @@ public partial class App : System.Windows.Application
     private WallpaperService? _service;
     private Forms.NotifyIcon? _tray;
     private Forms.ContextMenuStrip? _trayMenu;
+    private Forms.Timer? _trayClickTimer;
     private MainWindow? _window;
     private bool _exiting;
 
@@ -57,6 +58,14 @@ public partial class App : System.Windows.Application
             trayIcon = (System.Drawing.Icon)System.Drawing.SystemIcons.Application.Clone();
         }
 
+        _trayClickTimer = new Forms.Timer { Interval = 300 };
+        _trayClickTimer.Tick += async (_, _) =>
+        {
+            _trayClickTimer.Stop();
+            var service = _service;
+            if (!_exiting && service is not null) await service.ChangeNowAsync();
+        };
+
         _tray = new Forms.NotifyIcon
         {
             Icon = trayIcon,
@@ -64,7 +73,23 @@ public partial class App : System.Windows.Application
             ContextMenuStrip = _trayMenu,
             Visible = true
         };
-        _tray.DoubleClick += (_, _) => PostToWpf(ShowSettings);
+        _tray.MouseClick += (_, e) =>
+        {
+            if (e.Button != Forms.MouseButtons.Left || _exiting) return;
+            // Delay a single-click action briefly so a second click can be recognized as a double-click.
+            _trayClickTimer?.Stop();
+            _trayClickTimer?.Start();
+        };
+        _tray.DoubleClick += (_, _) =>
+        {
+            _trayClickTimer?.Stop();
+            var service = _service;
+            if (_exiting || service is null) return;
+            if (service.FavoriteCurrentWallpaper())
+                OnStatusChanged("已将当前壁纸复制到 Favorites 收藏夹，原缓存文件保留。");
+            else
+                OnStatusChanged("当前壁纸尚不可收藏，或它已经在收藏夹中。");
+        };
     }
 
     private void PostToWpf(Action action)
@@ -114,6 +139,9 @@ public partial class App : System.Windows.Application
             _tray.Dispose();
             _tray = null;
         }
+        _trayClickTimer?.Stop();
+        _trayClickTimer?.Dispose();
+        _trayClickTimer = null;
         _trayMenu?.Dispose();
         _trayMenu = null;
 
