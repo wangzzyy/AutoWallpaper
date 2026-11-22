@@ -57,6 +57,8 @@ public partial class MainWindow : Window
         CacheBox.Text = s.CacheDirectory;
         MaxCountBox.Text = s.MaxCacheCount.ToString();
         MaxDaysBox.Text = s.MaxAgeDays.ToString();
+        FavoriteReuseBox.SelectedValue = Math.Clamp(s.FavoriteReusePercent, 0, 20).ToString();
+        if (FavoriteReuseBox.SelectedItem == null) FavoriteReuseBox.SelectedValue = "2";
         StartupBox.IsChecked = s.StartWithWindows;
         AccentBox.IsChecked = s.AutoAccent;
         MinimizeBox.IsChecked = s.MinimizeToTray;
@@ -91,6 +93,7 @@ public partial class MainWindow : Window
         CacheDirectory = string.IsNullOrWhiteSpace(CacheBox.Text) ? SettingsStore.DefaultCache : CacheBox.Text.Trim(),
         MaxCacheCount = Parse(MaxCountBox.Text, 30, 1, 500),
         MaxAgeDays = Parse(MaxDaysBox.Text, 30, 1, 3650),
+        FavoriteReusePercent = Parse(FavoriteReuseBox.SelectedValue as string ?? "2", 2, 0, 20),
         StartWithWindows = StartupBox.IsChecked == true,
         AutoAccent = AccentBox.IsChecked == true,
         MinimizeToTray = MinimizeBox.IsChecked == true
@@ -133,12 +136,6 @@ public partial class MainWindow : Window
     private async void Next_Click(object sender, RoutedEventArgs e)
     {
         if (!SaveSettings()) return;
-        if (string.IsNullOrWhiteSpace(ApiKeyBox.Password))
-        {
-            SetStatus("请先填写 Unsplash Access Key。");
-            return;
-        }
-
         NextButton.IsEnabled = false;
         NextButton.Content = "正在换图…";
         SetStatus("正在准备壁纸，检查预取队列和本地图库…");
@@ -273,6 +270,27 @@ public partial class MainWindow : Window
         var hostname = (sender as System.Windows.Controls.Button)?.Tag as string;
         hostname = hostname is "images.unsplash.com" ? hostname : "api.unsplash.com";
         Process.Start(new ProcessStartInfo($"https://dnschecker.org/#A/{hostname}") { UseShellExecute = true });
+    }
+
+    private void Favorite_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var result = _service.FavoriteCurrentWallpaper();
+            SetStatus(result switch
+            {
+                FavoriteResult.Success => "收藏成功",
+                FavoriteResult.AlreadyExists => "该图片已经收藏，无需重复收藏。",
+                _ => "收藏失败：当前壁纸不可用。"
+            });
+        }
+        catch (Exception ex) { SetStatus("收藏失败：" + ex.Message); }
+    }
+
+    private void OpenFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        try { _service.OpenFavoritesFolder(); }
+        catch (Exception ex) { SetStatus("无法打开收藏夹：" + ex.Message); }
     }
 
     private void Browse_Click(object sender, RoutedEventArgs e)

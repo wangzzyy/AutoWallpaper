@@ -73,7 +73,7 @@
       <StackPanel Orientation="Horizontal" Margin="0,0,0,12"><Border Background="#E6F9F2" CornerRadius="8" Width="34" Height="34"><TextBlock Text="壁纸" Foreground="#067647" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Margin="10,0,0,0"><TextBlock Text="壁纸与缓存" Style="{StaticResource CardTitle}"/><TextBlock Text="设置更新频率、图片方向、显示方式与本地存储" Foreground="#667085" FontSize="12"/></StackPanel></StackPanel>
       <Grid>
        <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
        <TextBlock Grid.Row="0" Text="换图间隔（分钟）" Style="{StaticResource FieldLabel}"/><TextBox x:Name="IntervalBox" Grid.Row="0" Grid.Column="1"/>
        <TextBlock Grid.Row="1" Text="桌面适配方式" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FitBox" Grid.Row="1" Grid.Column="1" SelectedIndex="0" SelectionChanged="WallpaperOptions_SelectionChanged"><ComboBoxItem Content="填充（Fill）"/><ComboBoxItem Content="适应（Fit）"/><ComboBoxItem Content="拉伸（Stretch）"/><ComboBoxItem Content="居中（Center）"/><ComboBoxItem Content="平铺（Tile）"/></ComboBox>
        <TextBlock Grid.Row="2" Text="图片方向" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="OrientationBox" Grid.Row="2" Grid.Column="1" SelectedValuePath="Tag" ToolTip="选择 Unsplash 图片方向" SelectionChanged="WallpaperOptions_SelectionChanged"><ComboBoxItem Content="横向（Landscape）" Tag="landscape"/><ComboBoxItem Content="纵向（Portrait）" Tag="portrait"/><ComboBoxItem Content="方形（Squarish）" Tag="squarish"/><ComboBoxItem Content="不限方向（Any）" Tag="any"/></ComboBox>
@@ -81,7 +81,15 @@
        <TextBlock Grid.Row="4" Text="缓存目录" Style="{StaticResource FieldLabel}"/><DockPanel Grid.Row="4" Grid.Column="1"><TextBox x:Name="CacheBox"/><Button Content="浏览…" Click="Browse_Click"/></DockPanel>
        <TextBlock Grid.Row="5" Text="缓存图片数量上限" Style="{StaticResource FieldLabel}"/><TextBox x:Name="MaxCountBox" Grid.Row="5" Grid.Column="1"/>
        <TextBlock Grid.Row="6" Text="缓存最长保留（天）" Style="{StaticResource FieldLabel}"/><TextBox x:Name="MaxDaysBox" Grid.Row="6" Grid.Column="1"/>
+       <TextBlock Grid.Row="7" Text="收藏壁纸复用频率" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FavoriteReuseBox" Grid.Row="7" Grid.Column="1" SelectedValuePath="Tag"><ComboBoxItem Content="从不（0%）" Tag="0"/><ComboBoxItem Content="极低（2%，默认）" Tag="2"/><ComboBoxItem Content="很低（5%）" Tag="5"/><ComboBoxItem Content="低（10%）" Tag="10"/><ComboBoxItem Content="较低（20%）" Tag="20"/></ComboBox>
       </Grid>
+     </StackPanel>
+    </Border>
+    <Border Background="White" CornerRadius="14" Padding="18" Margin="0,0,0,13" BorderBrush="#E4E7EC" BorderThickness="1">
+     <StackPanel>
+      <TextBlock Text="收藏壁纸" Style="{StaticResource CardTitle}"/>
+      <TextBlock Text="收藏的图片保存在缓存目录下的 Favorites 文件夹，不参与普通缓存清理；可直接在文件夹中添加或删除图片。" Foreground="#667085" FontSize="12" Margin="0,2,0,8"/>
+      <StackPanel Orientation="Horizontal"><Button Content="收藏当前壁纸" Click="Favorite_Click"/><Button Content="打开收藏夹" Click="OpenFavorites_Click"/></StackPanel>
      </StackPanel>
     </Border>
     <Border Background="White" CornerRadius="14" Padding="18" Margin="0,0,0,10" BorderBrush="#E4E7EC" BorderThickness="1">
