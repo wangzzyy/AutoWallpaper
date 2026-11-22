@@ -397,23 +397,33 @@ public sealed class WallpaperService : IDisposable
             if (!Directory.Exists(cacheDirectory)) return null;
             var orientation = (selectedOrientation ?? "landscape").Trim().ToLowerInvariant();
             if (orientation is not ("landscape" or "portrait" or "squarish" or "any")) orientation = "landscape";
-            foreach (var file in new DirectoryInfo(cacheDirectory).GetFiles("*.jpg")
-                .Where(f => !f.Name.StartsWith(".", StringComparison.Ordinal))
-                .OrderByDescending(f => f.LastWriteTimeUtc))
+
+            // Prefer the requested orientation, but do not leave the desktop unchanged
+            // merely because an offline cache contains images of another orientation.
+            var files = new DirectoryInfo(cacheDirectory).GetFiles("*.*")
+                .Where(f => !f.Name.StartsWith(".", StringComparison.Ordinal)
+                    && new[] { ".jpg", ".jpeg", ".png", ".bmp" }.Contains(f.Extension, StringComparer.OrdinalIgnoreCase))
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ToList();
+
+            foreach (var requireOrientationMatch in new[] { true, false })
             {
-                try
+                foreach (var file in files)
                 {
-                    using var image = Image.FromFile(file.FullName);
-                    var matches = orientation switch
+                    try
                     {
-                        "portrait" => image.Height > image.Width,
-                        "squarish" => Math.Abs(image.Width - image.Height) <= Math.Max(image.Width, image.Height) * 0.15,
-                        "any" => true,
-                        _ => image.Width >= image.Height
-                    };
-                    if (matches) return file.FullName;
+                        using var image = Image.FromFile(file.FullName);
+                        var matches = orientation switch
+                        {
+                            "portrait" => image.Height > image.Width,
+                            "squarish" => Math.Abs(image.Width - image.Height) <= Math.Max(image.Width, image.Height) * 0.15,
+                            "any" => true,
+                            _ => image.Width >= image.Height
+                        };
+                        if (!requireOrientationMatch || matches) return file.FullName;
+                    }
+                    catch { /* Skip corrupt or unsupported cache entries. */ }
                 }
-                catch { /* Skip corrupt cache entries. */ }
             }
             return null;
         }
