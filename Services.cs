@@ -146,7 +146,8 @@ public sealed class WallpaperService : IDisposable
         try
         {
             if (!Directory.Exists(folder)) return null;
-            var candidates = Directory.GetFiles(folder, "*.jpg", SearchOption.TopDirectoryOnly)
+            var candidates = Directory.GetFiles(folder, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(p => new[] { ".jpg", ".jpeg", ".png", ".bmp" }.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase))
                 .Where(IsValidImage).ToList();
             if (candidates.Count == 0) return null;
             lock (_favoriteLock)
