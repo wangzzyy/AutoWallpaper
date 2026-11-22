@@ -93,10 +93,18 @@ public partial class App : System.Windows.Application
         var service = _service;
         if (_exiting || service is null) return;
 
-        if (service.FavoriteCurrentWallpaper())
-            OnStatusChanged("收藏成功");
-        else
-            OnStatusChanged("收藏失败：当前壁纸尚不可收藏，或它已经在收藏夹中。");
+        var succeeded = service.FavoriteCurrentWallpaper();
+        var message = succeeded ? "收藏成功" : "收藏失败：该图片已收藏，或当前壁纸不可用。";
+        OnStatusChanged(message);
+
+        // Show a visible Windows notification; changing the tray tooltip alone is easy to miss.
+        if (_tray is not null)
+        {
+            _tray.BalloonTipTitle = "AutoWallpaper";
+            _tray.BalloonTipText = message;
+            _tray.BalloonTipIcon = succeeded ? Forms.ToolTipIcon.Info : Forms.ToolTipIcon.Warning;
+            _tray.ShowBalloonTip(3000);
+        }
     }
 
     private void PostToWpf(Action action)
