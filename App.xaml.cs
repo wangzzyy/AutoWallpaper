@@ -173,6 +173,9 @@ public partial class App : System.Windows.Application
             _tray.Dispose();
             _tray = null;
         }
+        _trayClickTimer?.Stop();
+        _trayClickTimer?.Dispose();
+        _trayClickTimer = null;
         _trayMenu?.Dispose();
         _trayMenu = null;
         _service?.Dispose();
