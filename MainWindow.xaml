@@ -81,7 +81,7 @@
        <TextBlock Grid.Row="4" Text="缓存目录" Style="{StaticResource FieldLabel}"/><DockPanel Grid.Row="4" Grid.Column="1"><TextBox x:Name="CacheBox"/><Button Content="浏览…" Click="Browse_Click"/></DockPanel>
        <TextBlock Grid.Row="5" Text="缓存图片数量上限" Style="{StaticResource FieldLabel}"/><TextBox x:Name="MaxCountBox" Grid.Row="5" Grid.Column="1"/>
        <TextBlock Grid.Row="6" Text="缓存最长保留（天）" Style="{StaticResource FieldLabel}"/><TextBox x:Name="MaxDaysBox" Grid.Row="6" Grid.Column="1"/>
-       <TextBlock Grid.Row="7" Text="收藏壁纸复用频率" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FavoriteReuseBox" Grid.Row="7" Grid.Column="1" SelectedValuePath="Tag"><ComboBoxItem Content="从不（0%）" Tag="0"/><ComboBoxItem Content="极低（2%，默认）" Tag="2"/><ComboBoxItem Content="很低（5%）" Tag="5"/><ComboBoxItem Content="低（10%）" Tag="10"/><ComboBoxItem Content="自定义上限（20%）" Tag="20"/></ComboBox>
+       <TextBlock Grid.Row="7" Text="收藏壁纸复用频率" Style="{StaticResource FieldLabel}"/><ComboBox x:Name="FavoriteReuseBox" Grid.Row="7" Grid.Column="1" SelectedValuePath="Tag"><ComboBoxItem Content="从不（0%）" Tag="0"/><ComboBoxItem Content="极低（2%，默认）" Tag="2"/><ComboBoxItem Content="很低（5%）" Tag="5"/><ComboBoxItem Content="低（10%）" Tag="10"/><ComboBoxItem Content="较低（20%）" Tag="20"/></ComboBox>
       </Grid>
      </StackPanel>
     </Border>
