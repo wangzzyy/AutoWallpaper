@@ -27,6 +27,7 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; }
     public bool AutoAccent { get; set; }
     public bool MinimizeToTray { get; set; } = true;
+    public int FavoriteReusePercent { get; set; } = 2;
 }
 public static class SettingsStore
 {
@@ -109,7 +110,62 @@ public sealed class WallpaperService : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private bool _disposed;
     private AppSettings _settings = SettingsStore.Load();
+    private readonly object _favoriteLock = new();
+    private readonly HashSet<string> _favoriteCycleUsed = new(StringComparer.OrdinalIgnoreCase);
+    private string? _currentOriginalImagePath;
+    public string? CurrentOriginalImagePath => _currentOriginalImagePath;
     public event Action<string>? StatusChanged;
+
+    private string FavoritesDirectory => Path.Combine(_settings.CacheDirectory, "Favorites");
+
+    public void OpenFavoritesFolder()
+    {
+        Directory.CreateDirectory(FavoritesDirectory);
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(FavoritesDirectory) { UseShellExecute = true });
+    }
+
+    public bool FavoriteCurrentWallpaper()
+    {
+        var source = _currentOriginalImagePath;
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source)) return false;
+        var favorites = FavoritesDirectory;
+        Directory.CreateDirectory(favorites);
+        if (string.Equals(Path.GetDirectoryName(source), favorites, StringComparison.OrdinalIgnoreCase)) return false;
+        var destination = Path.Combine(favorites, Path.GetFileName(source));
+        var stem = Path.GetFileNameWithoutExtension(destination);
+        var suffix = 1;
+        while (File.Exists(destination)) destination = Path.Combine(favorites, $"{stem}_{suffix++}{Path.GetExtension(source)}");
+        File.Move(source, destination);
+        _currentOriginalImagePath = destination;
+        return true;
+    }
+
+    private string? TakeFavoriteImage(string cacheDirectory)
+    {
+        var folder = Path.Combine(cacheDirectory, "Favorites");
+        try
+        {
+            if (!Directory.Exists(folder)) return null;
+            var candidates = Directory.GetFiles(folder, "*.jpg", SearchOption.TopDirectoryOnly)
+                .Where(IsValidImage).ToList();
+            if (candidates.Count == 0) return null;
+            lock (_favoriteLock)
+            {
+                var remaining = candidates.Where(p => !_favoriteCycleUsed.Contains(p)).ToList();
+                if (remaining.Count == 0) { _favoriteCycleUsed.Clear(); remaining = candidates; }
+                var selected = remaining[Random.Shared.Next(remaining.Count)];
+                _favoriteCycleUsed.Add(selected);
+                return selected;
+            }
+        }
+        catch { return null; }
+    }
+
+    private static bool IsValidImage(string path)
+    {
+        try { using var image = Image.FromFile(path); return image.Width > 0 && image.Height > 0; }
+        catch { return false; }
+    }
     public void Start()
     {
         ApplySettings(_settings);
@@ -179,17 +235,24 @@ public sealed class WallpaperService : IDisposable
         {
             var settings = _settings;
             Directory.CreateDirectory(settings.CacheDirectory);
+            Directory.CreateDirectory(Path.Combine(settings.CacheDirectory, "Favorites"));
 
-            // Prefer a previously downloaded image so switching works even if the network is down.
-            selectedPath = TakePrefetchedImage(settings.CacheDirectory);
+            // Favorite reuse is an independent low-probability path, even while downloads work.
+            var favoriteTriggered = settings.FavoriteReusePercent > 0
+                && Random.Shared.Next(100) < Math.Clamp(settings.FavoriteReusePercent, 0, 20);
+            if (favoriteTriggered) selectedPath = TakeFavoriteImage(settings.CacheDirectory);
+
+            // Otherwise prefer prefetched/new images; favorites are the final offline fallback.
+            if (selectedPath is null) selectedPath = TakePrefetchedImage(settings.CacheDirectory);
             if (selectedPath is null)
             {
                 if (string.IsNullOrWhiteSpace(settings.AccessKey))
                 {
                     selectedPath = FindCachedFallback(settings.CacheDirectory, settings.Orientation);
+                    if (selectedPath is null) selectedPath = TakeFavoriteImage(settings.CacheDirectory);
                     if (selectedPath is null)
                     {
-                        StatusChanged?.Invoke("请填写 Unsplash Access Key；本地图库中也没有可用壁纸。 ");
+                        StatusChanged?.Invoke("请填写 Unsplash Access Key；普通缓存和收藏夹中都没有可用壁纸。 ");
                         return;
                     }
                 }
@@ -203,6 +266,7 @@ public sealed class WallpaperService : IDisposable
                     catch (Exception networkError)
                     {
                         selectedPath = FindCachedFallback(settings.CacheDirectory, settings.Orientation);
+                        if (selectedPath is null) selectedPath = TakeFavoriteImage(settings.CacheDirectory);
                         if (selectedPath is null) throw;
                         usedFallback = true;
                     }
@@ -217,6 +281,7 @@ public sealed class WallpaperService : IDisposable
                 selectedPath = await Task.Run(() => CreatePortraitLandscapeWallpaperIfNeeded(selectedPath, settings), _lifetime.Token).ConfigureAwait(false);
             }
             SetWallpaper(selectedPath, settings.FitMode);
+            _currentOriginalImagePath = accentSourcePath;
             if (settings.AutoAccent)
                 await Task.Run(() => SetAccentFromImage(accentSourcePath), _lifetime.Token).ConfigureAwait(false);
             await Task.Run(() => CleanupCache(selectedPath), _lifetime.Token).ConfigureAwait(false);
@@ -691,6 +756,7 @@ public sealed class WallpaperService : IDisposable
         try
         {
             if (!Directory.Exists(_settings.CacheDirectory)) return;
+            // Favorites is a dedicated subfolder and is intentionally excluded from cleanup.
             var files = new DirectoryInfo(_settings.CacheDirectory).GetFiles("*.jpg").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
             var cutoff = DateTime.UtcNow.AddDays(-_settings.MaxAgeDays);
             foreach (var f in files)
