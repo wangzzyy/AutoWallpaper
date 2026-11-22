@@ -93,18 +93,20 @@ public partial class App : System.Windows.Application
         var service = _service;
         if (_exiting || service is null) return;
 
-        var succeeded = service.FavoriteCurrentWallpaper();
-        var message = succeeded ? "收藏成功" : "收藏失败：该图片已收藏，或当前壁纸不可用。";
+        var result = service.FavoriteCurrentWallpaper();
+        var message = result switch
+        {
+            FavoriteResult.Success => "收藏成功",
+            FavoriteResult.AlreadyExists => "该图片已经收藏，无需重复收藏。",
+            _ => "收藏失败：当前壁纸不可用。"
+        };
         OnStatusChanged(message);
 
-        // Show a visible Windows notification; changing the tray tooltip alone is easy to miss.
-        if (_tray is not null)
-        {
-            _tray.BalloonTipTitle = "AutoWallpaper";
-            _tray.BalloonTipText = message;
-            _tray.BalloonTipIcon = succeeded ? Forms.ToolTipIcon.Info : Forms.ToolTipIcon.Warning;
-            _tray.ShowBalloonTip(3000);
-        }
+        // Use a modal dialog instead of a tray balloon: Windows may suppress balloon notifications.
+        _ = Dispatcher.BeginInvoke(new Action(() =>
+            System.Windows.MessageBox.Show(message, "AutoWallpaper", MessageBoxButton.OK,
+                result == FavoriteResult.Success ? MessageBoxImage.Information :
+                result == FavoriteResult.AlreadyExists ? MessageBoxImage.Warning : MessageBoxImage.Error)));
     }
 
     private void PostToWpf(Action action)
