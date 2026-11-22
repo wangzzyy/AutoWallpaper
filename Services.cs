@@ -130,13 +130,34 @@ public sealed class WallpaperService : IDisposable
         if (string.IsNullOrWhiteSpace(source) || !File.Exists(source)) return false;
         var favorites = FavoritesDirectory;
         Directory.CreateDirectory(favorites);
-        if (string.Equals(Path.GetDirectoryName(source), favorites, StringComparison.OrdinalIgnoreCase)) return false;
+
+        // Compare file contents rather than names: the same photo may have been copied
+        // under a different filename, or added manually to Favorites.
+        var sourceHash = ComputeFileHash(source);
+        foreach (var existing in Directory.EnumerateFiles(favorites))
+        {
+            if (!new[] { ".jpg", ".jpeg", ".png", ".bmp" }.Contains(Path.GetExtension(existing), StringComparer.OrdinalIgnoreCase))
+                continue;
+            try
+            {
+                if (string.Equals(sourceHash, ComputeFileHash(existing), StringComparison.Ordinal))
+                    return false;
+            }
+            catch { /* Ignore unreadable files and continue checking the folder. */ }
+        }
+
         var destination = Path.Combine(favorites, Path.GetFileName(source));
         var stem = Path.GetFileNameWithoutExtension(destination);
         var suffix = 1;
         while (File.Exists(destination)) destination = Path.Combine(favorites, $"{stem}_{suffix++}{Path.GetExtension(source)}");
         File.Copy(source, destination);
         return true;
+    }
+
+    private static string ComputeFileHash(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
     }
 
     private string? TakeFavoriteImage(string cacheDirectory)
