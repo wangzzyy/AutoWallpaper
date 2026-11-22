@@ -57,6 +57,8 @@ public static class StartupManager
         else key.DeleteValue("AutoWallpaper", false);
     }
 }
+public enum FavoriteResult { Success, AlreadyExists, Unavailable }
+
 public sealed class WallpaperService : IDisposable
 {
     // Connect directly to a user-supplied A-record IP for api.unsplash.com while keeping
@@ -124,10 +126,10 @@ public sealed class WallpaperService : IDisposable
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(FavoritesDirectory) { UseShellExecute = true });
     }
 
-    public bool FavoriteCurrentWallpaper()
+    public FavoriteResult FavoriteCurrentWallpaper()
     {
         var source = _currentOriginalImagePath;
-        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source)) return false;
+        if (string.IsNullOrWhiteSpace(source) || !File.Exists(source)) return FavoriteResult.Unavailable;
         var favorites = FavoritesDirectory;
         Directory.CreateDirectory(favorites);
 
@@ -141,7 +143,7 @@ public sealed class WallpaperService : IDisposable
             try
             {
                 if (string.Equals(sourceHash, ComputeFileHash(existing), StringComparison.Ordinal))
-                    return false;
+                    return FavoriteResult.AlreadyExists;
             }
             catch { /* Ignore unreadable files and continue checking the folder. */ }
         }
@@ -151,7 +153,7 @@ public sealed class WallpaperService : IDisposable
         var suffix = 1;
         while (File.Exists(destination)) destination = Path.Combine(favorites, $"{stem}_{suffix++}{Path.GetExtension(source)}");
         File.Copy(source, destination);
-        return true;
+        return FavoriteResult.Success;
     }
 
     private static string ComputeFileHash(string path)
