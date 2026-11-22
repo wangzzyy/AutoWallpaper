@@ -58,7 +58,7 @@ public partial class App : System.Windows.Application
             trayIcon = (System.Drawing.Icon)System.Drawing.SystemIcons.Application.Clone();
         }
 
-        _trayClickTimer = new Forms.Timer { Interval = 300 };
+        _trayClickTimer = new Forms.Timer { Interval = Math.Max(Forms.SystemInformation.DoubleClickTime, 300) };
         _trayClickTimer.Tick += async (_, _) =>
         {
             _trayClickTimer.Stop();
