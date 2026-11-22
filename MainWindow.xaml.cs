@@ -276,7 +276,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (_service.FavoriteCurrentWallpaper()) SetStatus("已将当前壁纸移入 Favorites 收藏夹，收藏图片不会被自动清理。");
+            if (_service.FavoriteCurrentWallpaper()) SetStatus("已将当前壁纸复制到 Favorites 收藏夹，原缓存文件保留。");
             else SetStatus("当前壁纸尚不可收藏，或它已经在收藏夹中。");
         }
         catch (Exception ex) { SetStatus("收藏失败：" + ex.Message); }
