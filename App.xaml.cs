@@ -1,4 +1,8 @@
 using System.Windows;
+using Border = System.Windows.Controls.Border;
+using DockPanel = System.Windows.Controls.DockPanel;
+using StackPanel = System.Windows.Controls.StackPanel;
+using TextBlock = System.Windows.Controls.TextBlock;
 using Forms = System.Windows.Forms;
 
 namespace AutoWallpaper;
@@ -136,8 +140,8 @@ public partial class App : System.Windows.Application
                 Foreground = accentBrush,
                 FontSize = 20,
                 FontWeight = FontWeights.SemiBold,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
                 TextAlignment = TextAlignment.Center
             }
         };
