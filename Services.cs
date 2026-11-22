@@ -286,7 +286,7 @@ public sealed class WallpaperService : IDisposable
                         selectedPath = await DownloadNextImageAsync(settings, _lifetime.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { throw; }
-                    catch (Exception networkError)
+                    catch (Exception)
                     {
                         selectedPath = FindCachedFallback(settings.CacheDirectory, settings.Orientation);
                         if (selectedPath is null) selectedPath = TakeFavoriteImage(settings.CacheDirectory);
