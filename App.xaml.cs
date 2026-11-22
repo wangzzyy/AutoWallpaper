@@ -176,7 +176,7 @@ public partial class App : System.Windows.Application
             LastChildFill = true,
             Children = { iconBadge, textStack }
         };
-        DockPanel.SetDock(iconBadge, Dock.Left);
+        DockPanel.SetDock(iconBadge, System.Windows.Controls.Dock.Left);
 
         var toast = new Window
         {
