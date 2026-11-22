@@ -135,8 +135,7 @@ public sealed class WallpaperService : IDisposable
         var stem = Path.GetFileNameWithoutExtension(destination);
         var suffix = 1;
         while (File.Exists(destination)) destination = Path.Combine(favorites, $"{stem}_{suffix++}{Path.GetExtension(source)}");
-        File.Move(source, destination);
-        _currentOriginalImagePath = destination;
+        File.Copy(source, destination);
         return true;
     }
 
